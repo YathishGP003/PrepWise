@@ -41,13 +41,21 @@ const Agent = ({
     };
 
     const onCallEnd = () => {
+      console.log("VAPI call ended naturally");
       setCallStatus(CallStatus.FINISHED);
     };
 
     const onMessage = (message: Message) => {
+      console.log("VAPI message received:", message);
+      
       if (message.type === "transcript" && message.transcriptType === "final") {
         const newMessage = { role: message.role, content: message.transcript };
         setMessages((prev) => [...prev, newMessage]);
+      }
+      
+      // Handle other message types that might indicate workflow completion
+      if (message.type === "function-call" || message.type === "tool-calls") {
+        console.log("Function/tool call detected:", message);
       }
     };
 
@@ -61,8 +69,31 @@ const Agent = ({
       setIsSpeaking(false);
     };
 
-    const onError = (error: Error) => {
-      console.log("Error:", error);
+    const onError = (error: any) => {
+      console.error("VAPI Error:", error);
+      setCallStatus(CallStatus.FINISHED);
+
+      // Show a more user-friendly error message
+      const errorMessage =
+        error?.message || error?.errorMsg || JSON.stringify(error);
+      if (errorMessage && typeof errorMessage === "string") {
+        if (
+          errorMessage.includes("workflow") ||
+          errorMessage.includes("assistant")
+        ) {
+          console.error(
+            "VAPI Configuration Error - Check your environment variables"
+          );
+        }
+        if (
+          errorMessage.includes("Meeting has ended") ||
+          errorMessage.includes("ejection")
+        ) {
+          console.error(
+            "VAPI Meeting Error - This could be due to workflow configuration or timeout"
+          );
+        }
+      }
     };
 
     vapi.on("call-start", onCallStart);
@@ -107,7 +138,15 @@ const Agent = ({
 
     if (callStatus === CallStatus.FINISHED) {
       if (type === "generate") {
-        router.push("/");
+        console.log("Interview generation completed, redirecting to home...");
+        // Check if the interview was actually created before redirecting
+        if (messages.length > 0) {
+          // There were messages, so the workflow ran
+          router.push("/");
+        } else {
+          // No messages, might be an error - stay on the page
+          console.log("No messages received, staying on page");
+        }
       } else {
         handleGenerateFeedback(messages);
       }
@@ -115,28 +154,50 @@ const Agent = ({
   }, [messages, callStatus, feedbackId, interviewId, router, type, userId]);
 
   const handleCall = async () => {
-    setCallStatus(CallStatus.CONNECTING);
+    try {
+      setCallStatus(CallStatus.CONNECTING);
 
-    if (type === "generate") {
-      await vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!, {
-        variableValues: {
-          username: userName,
-          userid: userId,
-        },
-      });
-    } else {
-      let formattedQuestions = "";
-      if (questions) {
-        formattedQuestions = questions
-          .map((question) => `- ${question}`)
-          .join("\n");
+      if (type === "generate") {
+        // Validate environment variables
+        if (!process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID) {
+          throw new Error("VAPI_WORKFLOW_ID not configured");
+        }
+
+        console.log("Starting VAPI workflow for interview generation");
+        console.log("Workflow ID:", process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID);
+        console.log("Variables:", { username: userName, userid: userId });
+        
+        await vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!, {
+          variableValues: {
+            username: userName,
+            userid: userId,
+          },
+        });
+      } else {
+        let formattedQuestions = "";
+        if (questions && questions.length > 0) {
+          formattedQuestions = questions
+            .map((question) => `- ${question}`)
+            .join("\n");
+        } else {
+          throw new Error("No questions available for interview");
+        }
+
+        console.log("Starting VAPI assistant for interview");
+        await vapi.start(interviewer, {
+          variableValues: {
+            questions: formattedQuestions,
+          },
+        });
       }
+    } catch (error) {
+      console.error("Error starting VAPI call:", error);
+      setCallStatus(CallStatus.FINISHED);
 
-      await vapi.start(interviewer, {
-        variableValues: {
-          questions: formattedQuestions,
-        },
-      });
+      // Show user-friendly error message
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      alert(`Failed to start interview: ${errorMessage}`);
     }
   };
 

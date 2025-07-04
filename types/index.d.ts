@@ -32,6 +32,28 @@ interface CreateFeedbackParams {
   feedbackId?: string;
 }
 
+interface GetFeedbackByInterviewIdParams {
+  interviewId: string;
+  userId: string;
+}
+
+interface GetLatestInterviewsParams {
+  userId: string;
+  limit?: number;
+}
+
+interface RouteParams {
+  params: Promise<{ id: string }>;
+}
+
+interface Message {
+  type: string;
+  transcriptType?: string;
+  role: "user" | "assistant" | "system";
+  transcript: string;
+  content: string;
+}
+
 interface User {
   name: string;
   email: string;
@@ -54,6 +76,7 @@ interface AgentProps {
   feedbackId?: string;
   type: "generate" | "interview";
   questions?: string[];
+  profileImage?: string;
 }
 
 interface RouteParams {
@@ -77,7 +100,6 @@ interface SignInParams {
 }
 
 interface SignUpParams {
-  uid: string;
   name: string;
   email: string;
   password: string;
@@ -86,6 +108,10 @@ interface SignUpParams {
 type FormType = "sign-in" | "sign-up";
 
 interface InterviewFormProps {
+  userId: string;
+}
+
+interface InterviewCreateFormProps {
   interviewId: string;
   role: string;
   level: string;

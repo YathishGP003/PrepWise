@@ -6,20 +6,24 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push",
+    "prisma:migrate": "prisma migrate dev"
   },
   "dependencies": {
     "@ai-sdk/google": "^1.1.25",
     "@hookform/resolvers": "^4.1.3",
+    "@prisma/client": "^5.22.0",
     "@radix-ui/react-label": "^2.1.2",
     "@radix-ui/react-slot": "^1.1.2",
     "@vapi-ai/web": "^2.2.4",
     "ai": "^4.1.61",
+    "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dayjs": "^1.11.13",
-    "firebase": "^11.4.0",
-    "firebase-admin": "^13.2.0",
+    "jose": "^5.0.0",
     "lucide-react": "^0.482.0",
     "next": "15.2.2",
     "next-themes": "^0.4.6",
@@ -34,11 +38,13 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.2.2",
+    "prisma": "^5.22.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

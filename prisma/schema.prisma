@@ -1,0 +1,70 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  password     String
+  name         String
+  profileURL   String?
+  resumeURL    String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  
+  interviews   Interview[]
+  feedback     Feedback[]
+  
+  @@map("users")
+}
+
+model Interview {
+  id           String     @id @default(cuid())
+  role         String
+  level        String
+  type         String
+  techstack    String[]
+  questions    String[]
+  coverImage   String?
+  finalized    Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  feedback     Feedback[]
+  
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([finalized, createdAt(sort: Desc)])
+  @@map("interviews")
+}
+
+model Feedback {
+  id                     String     @id @default(cuid())
+  totalScore             Int
+  categoryScores         Json       // Will store the array of category scores
+  strengths              String[]
+  areasForImprovement    String[]
+  finalAssessment        String
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
+  
+  interviewId            String
+  interview              Interview  @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  
+  userId                 String
+  user                   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([interviewId, userId])
+  @@index([interviewId, userId])
+  @@map("feedback")
+} 
