@@ -133,37 +133,6 @@ const AuthForm = ({ type }: { type: FormType }) => {
             {!isSignIn ? "Sign In" : "Sign Up"}
           </Link>
         </p>
-
-        {/* Test Login Button - Only show on sign-in */}
-        {isSignIn && (
-          <div className="border-t pt-4">
-            <p className="text-center text-sm text-gray-500 mb-2">For Testing:</p>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={async () => {
-                try {
-                  const response = await fetch('/api/auth/test-login', {
-                    method: 'POST',
-                  });
-                  const result = await response.json();
-                  
-                  if (result.success) {
-                    toast.success('Logged in as test user!');
-                    router.push('/');
-                  } else {
-                    toast.error('Test login failed');
-                  }
-                } catch (error) {
-                  toast.error('Test login error');
-                }
-              }}
-            >
-              🧪 Quick Test Login
-            </Button>
-          </div>
-        )}
       </div>
     </div>
   );
