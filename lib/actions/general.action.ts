@@ -3,7 +3,7 @@
 import { generateObject } from "ai";
 import { google } from "@ai-sdk/google";
 
-import { db } from "@/firebase/admin";
+import { prisma } from "@/lib/prisma";
 import { feedbackSchema } from "@/constants";
 
 export async function createFeedback(params: CreateFeedbackParams) {
@@ -38,7 +38,7 @@ export async function createFeedback(params: CreateFeedbackParams) {
         "You are a professional interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories",
     });
 
-    const feedback = {
+    const feedbackData = {
       interviewId: interviewId,
       userId: userId,
       totalScore: object.totalScore,
@@ -46,20 +46,24 @@ export async function createFeedback(params: CreateFeedbackParams) {
       strengths: object.strengths,
       areasForImprovement: object.areasForImprovement,
       finalAssessment: object.finalAssessment,
-      createdAt: new Date().toISOString(),
     };
 
-    let feedbackRef;
+    let feedback;
 
     if (feedbackId) {
-      feedbackRef = db.collection("feedback").doc(feedbackId);
+      // Update existing feedback
+      feedback = await prisma.feedback.update({
+        where: { id: feedbackId },
+        data: feedbackData,
+      });
     } else {
-      feedbackRef = db.collection("feedback").doc();
+      // Create new feedback
+      feedback = await prisma.feedback.create({
+        data: feedbackData,
+      });
     }
 
-    await feedbackRef.set(feedback);
-
-    return { success: true, feedbackId: feedbackRef.id };
+    return { success: true, feedbackId: feedback.id };
   } catch (error) {
     console.error("Error saving feedback:", error);
     return { success: false };
@@ -67,9 +71,16 @@ export async function createFeedback(params: CreateFeedbackParams) {
 }
 
 export async function getInterviewById(id: string): Promise<Interview | null> {
-  const interview = await db.collection("interviews").doc(id).get();
+  try {
+    const interview = await prisma.interview.findUnique({
+      where: { id },
+    });
 
-  return interview.data() as Interview | null;
+    return interview as Interview | null;
+  } catch (error) {
+    console.error("Error getting interview:", error);
+    return null;
+  }
 }
 
 export async function getFeedbackByInterviewId(
@@ -77,17 +88,27 @@ export async function getFeedbackByInterviewId(
 ): Promise<Feedback | null> {
   const { interviewId, userId } = params;
 
-  const querySnapshot = await db
-    .collection("feedback")
-    .where("interviewId", "==", interviewId)
-    .where("userId", "==", userId)
-    .limit(1)
-    .get();
+  try {
+    const feedback = await prisma.feedback.findUnique({
+      where: {
+        interviewId_userId: {
+          interviewId,
+          userId,
+        },
+      },
+    });
 
-  if (querySnapshot.empty) return null;
+    if (!feedback) return null;
 
-  const feedbackDoc = querySnapshot.docs[0];
-  return { id: feedbackDoc.id, ...feedbackDoc.data() } as Feedback;
+    return {
+      ...feedback,
+      categoryScores: feedback.categoryScores as any,
+      createdAt: feedback.createdAt.toISOString(),
+    } as Feedback;
+  } catch (error) {
+    console.error("Error getting feedback:", error);
+    return null;
+  }
 }
 
 export async function getLatestInterviews(
@@ -95,31 +116,49 @@ export async function getLatestInterviews(
 ): Promise<Interview[] | null> {
   const { userId, limit = 20 } = params;
 
-  const interviews = await db
-    .collection("interviews")
-    .orderBy("createdAt", "desc")
-    .where("finalized", "==", true)
-    .where("userId", "!=", userId)
-    .limit(limit)
-    .get();
+  try {
+    const interviews = await prisma.interview.findMany({
+      where: {
+        finalized: true,
+        userId: {
+          not: userId,
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: limit,
+    });
 
-  return interviews.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as Interview[];
+    return interviews.map((interview) => ({
+      ...interview,
+      createdAt: interview.createdAt.toISOString(),
+    })) as Interview[];
+  } catch (error) {
+    console.error("Error getting latest interviews:", error);
+    return null;
+  }
 }
 
 export async function getInterviewsByUserId(
   userId: string
 ): Promise<Interview[] | null> {
-  const interviews = await db
-    .collection("interviews")
-    .where("userId", "==", userId)
-    .orderBy("createdAt", "desc")
-    .get();
+  try {
+    const interviews = await prisma.interview.findMany({
+      where: {
+        userId,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
 
-  return interviews.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as Interview[];
+    return interviews.map((interview) => ({
+      ...interview,
+      createdAt: interview.createdAt.toISOString(),
+    })) as Interview[];
+  } catch (error) {
+    console.error("Error getting user interviews:", error);
+    return null;
+  }
 }
